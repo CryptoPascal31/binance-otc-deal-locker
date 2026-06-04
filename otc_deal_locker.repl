@@ -1,0 +1,208 @@
+(env-data {"disable-marmalade":true,
+           "disable-util-lib":false,
+           "disable-test-accounts":false})
+
+(load "kadena_repl_sandbox/kda-env/init.repl")
+
+(begin-tx)
+(define-namespace "NS" basic-guards.GUARD_SUCCESS basic-guards.GUARD_SUCCESS)
+(namespace "NS")
+(env-data {'admin:["admin-key"]})
+(define-keyset "NS.admin" (read-keyset "admin"))
+(load "otc_deal_locker.pact")
+
+(create-table global-table)
+(create-table account-table)
+;global-table
+(commit-tx)
+
+
+(begin-tx)
+; Create three users
+(env-data {'userA:["b87356ee8bb5375b67e0cd07d6c0b6628640e2013a8d4dc508935292d664824a"],
+           'userB:["c29497daada8a5823210407a1b7836534e06e64841ecdb749bc5772ea9a9e1a1"],
+           'userC:["7ae588a34612a14c1f11d348fdc5df183be5602e00cf4eec1fa6c18ebcc3aef3"]})
+
+(coin.create-account "k:b87356ee8bb5375b67e0cd07d6c0b6628640e2013a8d4dc508935292d664824a" (read-keyset 'userA))
+(coin.create-account "k:c29497daada8a5823210407a1b7836534e06e64841ecdb749bc5772ea9a9e1a1" (read-keyset 'userB))
+(coin.create-account "k:7ae588a34612a14c1f11d348fdc5df183be5602e00cf4eec1fa6c18ebcc3aef3" (read-keyset 'userC))
+
+(print (format "User A Balance: {}" [(coin.get-balance "k:b87356ee8bb5375b67e0cd07d6c0b6628640e2013a8d4dc508935292d664824a")]))
+(print (format "User B Balance: {}" [(coin.get-balance "k:c29497daada8a5823210407a1b7836534e06e64841ecdb749bc5772ea9a9e1a1")]))
+(print (format "User C Balance: {}" [(coin.get-balance "k:7ae588a34612a14c1f11d348fdc5df183be5602e00cf4eec1fa6c18ebcc3aef3")]))
+
+; Sanity check
+(expect "User A balance should be 0.0" 0.0 (coin.get-balance "k:b87356ee8bb5375b67e0cd07d6c0b6628640e2013a8d4dc508935292d664824a"))
+(expect "User B balance should be 0.0" 0.0 (coin.get-balance "k:c29497daada8a5823210407a1b7836534e06e64841ecdb749bc5772ea9a9e1a1"))
+(expect "User C balance should be 0.0" 0.0 (coin.get-balance "k:7ae588a34612a14c1f11d348fdc5df183be5602e00cf4eec1fa6c18ebcc3aef3"))
+
+(commit-tx)
+
+(begin-tx)
+(use NS.otc-deal-locker)
+(print "Locked internal accounts")
+(print (format "User A -> {}" [(locked-account-principal "k:b87356ee8bb5375b67e0cd07d6c0b6628640e2013a8d4dc508935292d664824a")]))
+(print (format "User B -> {}" [(locked-account-principal "k:c29497daada8a5823210407a1b7836534e06e64841ecdb749bc5772ea9a9e1a1")]))
+(print (format "User C -> {}" [(locked-account-principal "k:7ae588a34612a14c1f11d348fdc5df183be5602e00cf4eec1fa6c18ebcc3aef3")]))
+(commit-tx)
+
+
+; Test scenarios
+;
+; Lock conditions: Intial unlock 20%, Locked over 1000 days
+;
+; User A = 50 KDA Locked
+;   - Unlock at T0
+;   - Unlock at T0 + 1 day
+;   - Unlock at T0 + 1001 days
+;
+; User B = 100 KDA Locked
+;   - Unlock at T0 + 1 day
+;   - Unlock at T0 + 1001 days
+;
+
+
+(begin-tx)
+(use NS.otc-deal-locker)
+(use free.util-math)
+(env-chain-data {'block-time: (time "2026-06-03T00:00:00Z")})
+
+; Set up an initial delivery ratio of 20%, and remaining over 1000 days
+(env-sigs [{'key:"admin-key", 'caps:[(NS.otc-deal-locker.GOV)]}])
+(init 0.2 1000.0)
+
+(env-sigs [{'key:"alice-key", 'caps:[(coin.TRANSFER "alice" "c:CypXpR_6NL0vuxLbuqNrNdz1wJamWQ1mDE8CPF25_VM" 50.0),
+                                     (coin.TRANSFER "alice" "c:JCfjm6uId3N0QAMktRb5XUKGX7LbDJvYKuEM9IGIl9A" 100.0),
+                                     (coin.TRANSFER "alice" "c:S2ml7PIyg3dGykHV18oEEuZwXAnewm0fAP-CRbAEhGE" 200.0)
+                                         ]}])
+
+(create-lock "alice" "k:b87356ee8bb5375b67e0cd07d6c0b6628640e2013a8d4dc508935292d664824a" 50.0)
+(create-lock "alice" "k:c29497daada8a5823210407a1b7836534e06e64841ecdb749bc5772ea9a9e1a1" 100.0)
+(create-lock "alice" "k:7ae588a34612a14c1f11d348fdc5df183be5602e00cf4eec1fa6c18ebcc3aef3" 200.0)
+
+; Check unlockable amounts
+; Use between to catch despite
+(expect-that  "User A can unlock 50 * 20% = 10 KDA"  (compose (round* 4) (= 10.0)) (account-available "k:b87356ee8bb5375b67e0cd07d6c0b6628640e2013a8d4dc508935292d664824a"))
+(expect-that  "User A can unlock 100 * 20% = 20 KDA" (compose (round* 4) (= 20.0)) (account-available "k:c29497daada8a5823210407a1b7836534e06e64841ecdb749bc5772ea9a9e1a1"))
+(expect-that  "User A can unlock 200 * 20% = 40 KDA" (compose (round* 4) (= 40.0)) (account-available "k:7ae588a34612a14c1f11d348fdc5df183be5602e00cf4eec1fa6c18ebcc3aef3"))
+
+; Verify global state
+(expect-that "Global total"     (compose (at'total)     (= 350.0))                     (global-state))
+(expect-that "Global unlocked"  (compose (at'unlocked)  (= 0.0))                       (global-state))
+(expect-that "Global availalbe" (compose (at'available) (compose (round* 4) (= 70.0))) (global-state))
+
+
+; Verify Account states
+(expect-that "Account A total"     (compose (at'total)     (= 50.0))  (account-state "k:b87356ee8bb5375b67e0cd07d6c0b6628640e2013a8d4dc508935292d664824a"))
+(expect-that "Account A unlocked"  (compose (at'unlocked)  (= 0.0))   (account-state "k:b87356ee8bb5375b67e0cd07d6c0b6628640e2013a8d4dc508935292d664824a"))
+
+(expect-that "Account B total"     (compose (at'total)     (= 100.0)) (account-state "k:c29497daada8a5823210407a1b7836534e06e64841ecdb749bc5772ea9a9e1a1"))
+(expect-that "Account B unlocked"  (compose (at'unlocked)  (= 0.0))   (account-state "k:c29497daada8a5823210407a1b7836534e06e64841ecdb749bc5772ea9a9e1a1"))
+
+(expect-that "Account C total"     (compose (at'total)     (= 200.0)) (account-state "k:7ae588a34612a14c1f11d348fdc5df183be5602e00cf4eec1fa6c18ebcc3aef3"))
+(expect-that "Account C unlocked"  (compose (at'unlocked)  (= 0.0))   (account-state "k:7ae588a34612a14c1f11d348fdc5df183be5602e00cf4eec1fa6c18ebcc3aef3"))
+
+
+; User A unlock
+(unlock "k:b87356ee8bb5375b67e0cd07d6c0b6628640e2013a8d4dc508935292d664824a")
+
+; Check user A account
+(expect-that  "User A new balance" (between 9.99 10.01) (coin.get-balance "k:b87356ee8bb5375b67e0cd07d6c0b6628640e2013a8d4dc508935292d664824a"))
+(expect "Nothing can be unlocked" 0.0 (account-available "k:b87356ee8bb5375b67e0cd07d6c0b6628640e2013a8d4dc508935292d664824a"))
+(commit-tx)
+
+
+(begin-tx)
+(use NS.otc-deal-locker)
+(use free.util-math)
+(env-chain-data {'block-time: (time "2026-06-03T00:00:00Z")})
+
+; We are still at the same (probably same block)
+(expect "Nothing can be unlocked" 0.0 (account-available "k:b87356ee8bb5375b67e0cd07d6c0b6628640e2013a8d4dc508935292d664824a"))
+; Try to unlock anyway
+(expect-failure "0.0 to be unlocked" "transfer amount must be positive" (unlock "k:b87356ee8bb5375b67e0cd07d6c0b6628640e2013a8d4dc508935292d664824a"))
+(commit-tx)
+
+
+(begin-tx)
+(use NS.otc-deal-locker)
+(use free.util-math)
+; One day later
+(env-chain-data {'block-time: (time "2026-06-04T00:00:00Z")})
+
+
+(expect-that  "User A can unlock 40 * 0.1%"       (compose (round* 4) (=  0.04)) (account-available "k:b87356ee8bb5375b67e0cd07d6c0b6628640e2013a8d4dc508935292d664824a"))
+(expect-that  "User B can unlock 20 + 80 *  0.1%" (compose (round* 4) (= 20.08)) (account-available "k:c29497daada8a5823210407a1b7836534e06e64841ecdb749bc5772ea9a9e1a1"))
+(expect-that  "User C can unlock 40 + 160 * 0.1%" (compose (round* 4) (= 40.16)) (account-available "k:7ae588a34612a14c1f11d348fdc5df183be5602e00cf4eec1fa6c18ebcc3aef3"))
+
+; User A and B unlock
+(unlock "k:b87356ee8bb5375b67e0cd07d6c0b6628640e2013a8d4dc508935292d664824a")
+(unlock "k:c29497daada8a5823210407a1b7836534e06e64841ecdb749bc5772ea9a9e1a1")
+
+(expect-that  "User A new balance" (compose (round* 4) (= 10.04)) (coin.get-balance "k:b87356ee8bb5375b67e0cd07d6c0b6628640e2013a8d4dc508935292d664824a"))
+(expect-that  "User B new balance" (compose (round* 4) (= 20.08)) (coin.get-balance "k:c29497daada8a5823210407a1b7836534e06e64841ecdb749bc5772ea9a9e1a1"))
+
+
+; Verify global state
+(expect-that "Global total"     (compose (at'total)     (= 350.0))                      (global-state))
+(expect-that "Global unlocked"  (compose (at'unlocked)  (compose (round* 4) (= 30.12))) (global-state))
+(expect-that "Global availalbe" (compose (at'available) (compose (round* 4) (= 40.16))) (global-state))
+
+; Verify Account states
+(expect-that "Account A total"     (compose (at'total)     (= 50.0))                       (account-state "k:b87356ee8bb5375b67e0cd07d6c0b6628640e2013a8d4dc508935292d664824a"))
+(expect-that "Account A unlocked"  (compose (at'unlocked)  (compose (round* 4) (= 10.04))) (account-state "k:b87356ee8bb5375b67e0cd07d6c0b6628640e2013a8d4dc508935292d664824a"))
+(expect-that "Account A availalbe" (compose (at'available) (= 0.0))                        (account-state "k:b87356ee8bb5375b67e0cd07d6c0b6628640e2013a8d4dc508935292d664824a"))
+
+
+(expect-that "Account B total"     (compose (at'total)     (= 100.0))                      (account-state "k:c29497daada8a5823210407a1b7836534e06e64841ecdb749bc5772ea9a9e1a1"))
+(expect-that "Account B unlocked"  (compose (at'unlocked)  (compose (round* 4) (= 20.08))) (account-state "k:c29497daada8a5823210407a1b7836534e06e64841ecdb749bc5772ea9a9e1a1"))
+(expect-that "Account B availalbe" (compose (at'available) (= 0.0))                        (account-state "k:c29497daada8a5823210407a1b7836534e06e64841ecdb749bc5772ea9a9e1a1"))
+
+
+(expect-that "Account C total"     (compose (at'total)     (= 200.0))                      (account-state "k:7ae588a34612a14c1f11d348fdc5df183be5602e00cf4eec1fa6c18ebcc3aef3"))
+(expect-that "Account C unlocked"  (compose (at'unlocked)  (= 0.0))                        (account-state "k:7ae588a34612a14c1f11d348fdc5df183be5602e00cf4eec1fa6c18ebcc3aef3"))
+(expect-that "Account C availalbe" (compose (at'available) (compose (round* 4) (= 40.16))) (account-state "k:7ae588a34612a14c1f11d348fdc5df183be5602e00cf4eec1fa6c18ebcc3aef3"))
+
+(commit-tx)
+
+
+;; After 1001 days
+(begin-tx)
+(use NS.otc-deal-locker)
+(use free.util-math)
+; After 1001 dyas
+(env-chain-data {'block-time: (time "2029-02-29T00:00:00Z")})
+(expect-that  "User A can unlock everything - what already unlocked" (compose (round* 4) (= 39.96)) (account-available "k:b87356ee8bb5375b67e0cd07d6c0b6628640e2013a8d4dc508935292d664824a"))
+(expect-that  "User B can unlock everything - what already unlocked" (compose (round* 4) (= 79.92)) (account-available "k:c29497daada8a5823210407a1b7836534e06e64841ecdb749bc5772ea9a9e1a1"))
+(expect-that  "User C can unlock everything"                         (= 200.0)                      (account-available "k:7ae588a34612a14c1f11d348fdc5df183be5602e00cf4eec1fa6c18ebcc3aef3"))
+
+
+
+; Withdraw everything
+(unlock "k:b87356ee8bb5375b67e0cd07d6c0b6628640e2013a8d4dc508935292d664824a")
+(unlock "k:c29497daada8a5823210407a1b7836534e06e64841ecdb749bc5772ea9a9e1a1")
+(unlock "k:7ae588a34612a14c1f11d348fdc5df183be5602e00cf4eec1fa6c18ebcc3aef3")
+
+
+(expect-that "Nothing remains" (= 0.0) (account-available "k:b87356ee8bb5375b67e0cd07d6c0b6628640e2013a8d4dc508935292d664824a"))
+(expect-that "Nothing remains" (= 0.0) (account-available "k:c29497daada8a5823210407a1b7836534e06e64841ecdb749bc5772ea9a9e1a1"))
+(expect-that "Nothing remains" (= 0.0) (account-available "k:7ae588a34612a14c1f11d348fdc5df183be5602e00cf4eec1fa6c18ebcc3aef3"))
+
+; Verify Account states
+(expect-that "Account A total"     (compose (at'total)     (= 50.0)) (account-state "k:b87356ee8bb5375b67e0cd07d6c0b6628640e2013a8d4dc508935292d664824a"))
+(expect-that "Account A unlocked"  (compose (at'unlocked)  (= 50.0)) (account-state "k:b87356ee8bb5375b67e0cd07d6c0b6628640e2013a8d4dc508935292d664824a"))
+(expect-that "Account A availalbe" (compose (at'available) (= 0.0))  (account-state "k:b87356ee8bb5375b67e0cd07d6c0b6628640e2013a8d4dc508935292d664824a"))
+
+(expect-that "Account B total"     (compose (at'total)     (= 100.0)) (account-state "k:c29497daada8a5823210407a1b7836534e06e64841ecdb749bc5772ea9a9e1a1"))
+(expect-that "Account B unlocked"  (compose (at'unlocked)  (= 100.0)) (account-state "k:c29497daada8a5823210407a1b7836534e06e64841ecdb749bc5772ea9a9e1a1"))
+(expect-that "Account B availalbe" (compose (at'available) (= 0.0))   (account-state "k:c29497daada8a5823210407a1b7836534e06e64841ecdb749bc5772ea9a9e1a1"))
+
+(expect-that "Account C total"     (compose (at'total)     (= 200.0)) (account-state "k:7ae588a34612a14c1f11d348fdc5df183be5602e00cf4eec1fa6c18ebcc3aef3"))
+(expect-that "Account C unlocked"  (compose (at'unlocked)  (= 200.0)) (account-state "k:7ae588a34612a14c1f11d348fdc5df183be5602e00cf4eec1fa6c18ebcc3aef3"))
+(expect-that "Account C availalbe" (compose (at'available) (= 0.0))   (account-state "k:7ae588a34612a14c1f11d348fdc5df183be5602e00cf4eec1fa6c18ebcc3aef3"))
+
+
+; Verify global state
+(expect-that "Global total"     (compose (at'total)     (= 350.0)) (global-state))
+(expect-that "Global unlocked"  (compose (at'unlocked)  (= 350.0)) (global-state))
+(expect-that "Global availalbe" (compose (at'available) (= 0.0))   (global-state))
