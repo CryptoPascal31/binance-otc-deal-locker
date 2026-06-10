@@ -1,0 +1,84 @@
+(env-data {"disable-marmalade":true,
+           "disable-util-lib":false,
+           "disable-test-accounts":false})
+
+(load "kadena_repl_sandbox/kda-env/init.repl")
+
+(begin-tx)
+(define-namespace "NS" basic-guards.GUARD_SUCCESS basic-guards.GUARD_SUCCESS)
+(namespace "NS")
+(env-data {'admin:["admin-key"]})
+(define-keyset "NS.admin" (read-keyset "admin"))
+(load "otc_deal_locker.pact")
+(create-table global-table)
+(create-table account-table)
+
+(load "gas-station.pact")
+(init)
+(print (format "Gas station account: {}" [GAS_ACCOUNT]))
+(commit-tx)
+
+(begin-tx)
+(use NS.otc-deal-locker)
+(use free.util-math)
+; Create a lock
+(env-chain-data {'block-time: (time "2026-06-03T00:00:00Z")})
+(env-sigs [{'key:"admin-key", 'caps:[(NS.otc-deal-locker.GOV)]}])
+(init 0.2 1000.0)
+
+(env-data {'userA:["b87356ee8bb5375b67e0cd07d6c0b6628640e2013a8d4dc508935292d664824a"]})
+
+(coin.create-account "k:b87356ee8bb5375b67e0cd07d6c0b6628640e2013a8d4dc508935292d664824a" (read-keyset 'userA))
+
+(env-sigs [{'key:"alice-key", 'caps:[(coin.TRANSFER "alice" "c:CypXpR_6NL0vuxLbuqNrNdz1wJamWQ1mDE8CPF25_VM" 50.0) ]}])
+(create-lock "alice" "k:b87356ee8bb5375b67e0cd07d6c0b6628640e2013a8d4dc508935292d664824a" 50.0)
+(commit-tx)
+
+
+(begin-tx)
+(use NS.gas-station)
+(env-chain-data {'gas-limit:850,
+                 'gas-price: 0.000000001})
+
+(env-data {'tx-type:"exec",
+           'exec-code:["(NS.otc-deal-locker.unlock (read-string 'account))"],
+           'exec-user-data:{'account:"k:b87356ee8bb5375b67e0cd07d6c0b6628640e2013a8d4dc508935292d664824a"}})
+
+(test-capability (GAS_PAYER "k:b87356ee8bb5375b67e0cd07d6c0b6628640e2013a8d4dc508935292d664824a" 850 0.000000001))
+
+
+; Bad user
+(env-data {'tx-type:"exec",
+           'exec-code:["(NS.otc-deal-locker.unlock (read-string 'account))"],
+           'exec-user-data:{'account:"k:c29497daada8a5823210407a1b7836534e06e64841ecdb749bc5772ea9a9e1a1"}})
+
+(expect-failure "Bad user" "Account not in deal"
+  (test-capability (GAS_PAYER "k:c29497daada8a5823210407a1b7836534e06e64841ecdb749bc5772ea9a9e1a1" 850 0.000000001)))
+
+
+; Inconsistent user
+(env-data {'tx-type:"exec",
+           'exec-code:["(NS.otc-deal-locker.unlock (read-string 'account))"],
+           'exec-user-data:{'account:"k:b87356ee8bb5375b67e0cd07d6c0b6628640e2013a8d4dc508935292d664824a"}})
+
+(expect-failure "Bad user" "Invalid Account"
+  (test-capability (GAS_PAYER "Anybody" 850 0.000000001)))
+
+; Invalid gas
+(env-data {'tx-type:"exec",
+           'exec-code:["(NS.otc-deal-locker.unlock (read-string 'account))"],
+           'exec-user-data:{'account:"k:b87356ee8bb5375b67e0cd07d6c0b6628640e2013a8d4dc508935292d664824a"}})
+
+(expect-failure "Bad gas" "Invalid gas limit"
+  (test-capability (GAS_PAYER "Anybody" 1500 0.000000001)))
+
+; Invalid gas price
+(env-data {'tx-type:"exec",
+  'exec-code:["(NS.otc-deal-locker.unlock (read-string 'account))"],
+  'exec-user-data:{'account:"k:b87356ee8bb5375b67e0cd07d6c0b6628640e2013a8d4dc508935292d664824a"}})
+
+(expect-failure "Bad gas price" "Invalid gas price"
+  (test-capability (GAS_PAYER "Anybody" 850 0.000000005)))
+
+
+(commit-tx)
