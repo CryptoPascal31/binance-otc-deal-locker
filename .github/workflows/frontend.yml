@@ -1,0 +1,56 @@
+name: Frontend
+
+on:
+  push:
+
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        working-directory: frontend/otc-lock
+        run: npm ci
+
+      - name: Install env file
+        working-directory: frontend/otc-lock
+        run: cat env-testnet > .env
+
+
+      - name: Build project
+        working-directory: frontend/otc-lock
+        run: npm run build
+
+      - name: Upload production build files
+        uses: actions/upload-artifact@v7
+        with:
+          path: ./frontend/otc-lock/dist
+
+  deploy:
+    name: Deploy
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+
+    steps:
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
