@@ -1,0 +1,6 @@
+VITE_DEFAULT_NODE_ENDPOINT=https://api.testnet.chainweb-community.org
+
+VITE_CHAIN_ID=0
+VITE_NAMESPACE=n_bc5cfd61389dcecb51607b226f5b1d2f8da321f5
+VITE_NETWORK="testnet06"
+VITE_EXPLORER=https://explorer.chainweb-community.org/testnet
