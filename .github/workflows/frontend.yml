@@ -35,9 +35,8 @@ jobs:
 
       - name: Upload production build files
         uses: actions/upload-artifact@v7
-        working-directory: frontend/otc-lock
         with:
-          path: ./dist
+          path: ./frontend/otc-lock/dist
 
   deploy:
     name: Deploy
