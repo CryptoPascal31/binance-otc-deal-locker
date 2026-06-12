@@ -1,22 +1,32 @@
-import type Decimal from "decimal.js"
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "./components/ui/chart"
 import { Label, Pie, PieChart } from "recharts"
 import { useAccountState, useGlobalState, type LockState } from "./hooks/locker"
+import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "./components/ui/table"
+import type Decimal from "decimal.js"
 
 
-export function UnlockChart({amount, total} : {amount:Decimal, total:Decimal}) {
+function UnlockChart({data}: {data:LockState}) {
+  const {available, total, unlocked } = data
+  const locked = total.minus(unlocked).minus(available)
   const chartData = [
-    { name: "locked", value: total.minus(amount).toNumber(), fill: "var(--color-locked)" },
-    { name: "unlocked", value: amount.toNumber(), fill: "var(--color-unlocked)" },
+    { name: "locked", value: locked.toNumber(), fill: "var(--color-locked)" },
+    { name: "available", value: available.toNumber(), fill: "var(--color-available)" },
+    { name: "unlocked", value: unlocked.toNumber(), fill: "var(--color-unlocked)" },
   ]
 
   const chartConfig = {
     locked: {
-      label: "Locked",
+      label: "Locked/",
       color: "var(--chart-2)",
     },
+
+    available: {
+      label: "Availab/",
+      color: "var(--color-green-500)",
+    },
+
     unlocked: {
-      label: "Unlock",
+      label: "Unlocked/",
       color: "var(--chart-1)",
     },
   } satisfies ChartConfig
@@ -47,14 +57,14 @@ export function UnlockChart({amount, total} : {amount:Decimal, total:Decimal}) {
                           y={(viewBox.cy || 0) - 12}
                           className="fill-foreground text-2xl font-bold"
                         >
-                          {amount.toFixed(1)}
+                          {unlocked.toFixed(1)}
                         </tspan>
                         <tspan
                           x={viewBox.cx}
                           y={(viewBox.cy || 0) + 12}
                           className="fill-muted-foreground text-xs"
                         >
-                          {amount.mul(100).div(total).toFixed(1)}% of {total.toFixed(1)}
+                          {unlocked.mul(100).div(total).toFixed(1)}% of {total.toFixed(1)}
                         </tspan>
                       </text>
                     )
@@ -66,18 +76,46 @@ export function UnlockChart({amount, total} : {amount:Decimal, total:Decimal}) {
         </ChartContainer>
 }
 
+function UnlockTable({data}: {data:LockState}) {
+  const {available, total, unlocked } = data
+  const locked = total.minus(unlocked).minus(available)
 
-export function UnlockCharts({data}: {data:LockState}) {
-  const {available, total, unlocked} = data
-  return <div className="flex w-full ">
-          <div className="flex flex-col h-full grow-1">
-            <UnlockChart amount={unlocked} total={total} />
-            <div className="text-center">Unlocked KDA </div>
-          </div>
-          <div className="flex flex-col h-full grow-1">
-              <UnlockChart amount={available.plus(unlocked)} total={total} />
-              <div className="text-center">Unlockable KDA </div>
-          </div>
+  const Row = ({name, amount}: {name:string, amount:Decimal}) =>
+    <TableRow>
+      <TableCell className="font-medium">{name}</TableCell>
+      <TableCell className="text-right">{amount.toFixed(4)}</TableCell>
+    </TableRow>
+
+  return <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead></TableHead>
+              <TableHead className="text-right">KDA</TableHead>
+            </TableRow>
+          </TableHeader>
+
+          <TableBody>
+            <Row name="Unlocked" amount={unlocked} />
+            <Row name="Available" amount={available} />
+            <Row name="Locked" amount={locked} />
+          </TableBody>
+
+          <TableFooter>
+            <Row name="Total" amount={total} />
+          </TableFooter>
+        </Table>
+
+}
+function UnlockCharts({data}: {data:LockState}) {
+  return <div className="flex w-full h-45 ">
+            <div className="flex flex-col h-full grow-1">
+              <UnlockChart data={data} />
+              <div className="text-center">Amounts in KDA </div>
+            </div>
+
+            <div className="flex flex-col h-full grow-2 hidden md:block">
+              <UnlockTable data={data} />
+            </div>
         </div>
 }
 
