@@ -120,13 +120,13 @@ function UnlockCharts({data}: {data:LockState}) {
 }
 
 export function GlobalUnlockCharts() {
-  const data = useGlobalState()
+  const {data} = useGlobalState()
 
   return data ? <UnlockCharts data={data} /> : null
 }
 
 export function AccountUnlockCharts({account} : {account: string | undefined}) {
-  const data = useAccountState(account)
+  const {data} = useAccountState(account)
 
   return data ? <UnlockCharts data={data} /> : null
 }

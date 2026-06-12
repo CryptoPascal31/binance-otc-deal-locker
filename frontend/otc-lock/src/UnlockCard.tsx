@@ -13,7 +13,7 @@ import {
   FieldLabel,
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import { useAccountState, useUnlockTxBuilder } from "./hooks/locker"
+import { useAccountState, useGlobalState, useUnlockTxBuilder } from "./hooks/locker"
 import useLocalStorage from "use-local-storage";
 import { useState } from "react"
 import { VIRTUAL_SIGNER } from "./lib/virtual_signer"
@@ -35,7 +35,8 @@ type TransactionState = null | "SUBMITTED" | "CONFIRMED" | "ERROR"
 
 function DoUnlockButton({account}: {account:string | null})
 {
-  const lockState = useAccountState(account)
+  const {data:lockState, mutate} = useAccountState(account)
+  const {mutate:globalMutate} = useGlobalState()
   const txBuilder = useUnlockTxBuilder()
   const [txHash, setTxHash] = useState<string | null>(null)
   const [txState, setTxState] = useState<TransactionState | null>(null)
@@ -53,7 +54,7 @@ function DoUnlockButton({account}: {account:string | null})
                           .then(submit)
                           .then((x) => {setTxHash(x.requestKey); setTxState("SUBMITTED"); return x})
                           .then(statusChecked)
-                          .then(() => setTxState("CONFIRMED"))
+                          .then(() => {setTxState("CONFIRMED"); mutate(); globalMutate()})
                           .catch((e) => {setTxState("ERROR"); setError(e.toString())})
                           .then(() => clearTimeout.start())}
 

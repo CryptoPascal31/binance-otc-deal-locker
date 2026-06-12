@@ -37,20 +37,20 @@ export function useGasConfig() : undefined | GasConfig
   return gasData && {code:gasData.code, payer:gasData.payer, cap:`${module}.GAS_PAYER`, limit:to_int(gasData.limit), price:to_decimal(gasData.price)}
 }
 
-export function useGlobalState(): undefined | LockState
+export function useGlobalState()
 {
   const module = `${import.meta.env.VITE_NAMESPACE}.otc-deal-locker`
-  const {data} = useLocalPact(`(${module}.global-state)`, NETWORK, CHAIN, {revalidateIfStale: false, refreshInterval:15_000})
+  const {data, mutate} = useLocalPact(`(${module}.global-state)`, NETWORK, CHAIN, {revalidateIfStale: false, refreshInterval:15_000})
 
-  return data ? to_state(data as Record<string, any>) : undefined
+  return {data: data && to_state(data as Record<string, any>), mutate}
 }
 
-export function useAccountState(account:string | undefined | null ): undefined | LockState
+export function useAccountState(account:string | undefined | null )
 {
   const module = `${import.meta.env.VITE_NAMESPACE}.otc-deal-locker`
-  const {data} = useLocalPact( account ? `(${module}.account-state "${account}")` : null, NETWORK, CHAIN, {revalidateIfStale: false, refreshInterval:15_000})
+  const {data, mutate} = useLocalPact( account ? `(${module}.account-state "${account}")` : null, NETWORK, CHAIN, {revalidateIfStale: false, refreshInterval:15_000})
 
-  return data ? to_state(data as Record<string, any>) : undefined
+  return {data: data && to_state(data as Record<string, any>), mutate}
 }
 
 
