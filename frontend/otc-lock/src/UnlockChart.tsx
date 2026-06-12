@@ -2,7 +2,9 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } f
 import { Label, Pie, PieChart } from "recharts"
 import { useAccountState, useGlobalState, type LockState } from "./hooks/locker"
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "./components/ui/table"
-import type Decimal from "decimal.js"
+import Decimal from "decimal.js"
+import { formatCompactKda } from "./lib/decimal_utils"
+
 
 
 function UnlockChart({data}: {data:LockState}) {
@@ -57,14 +59,14 @@ function UnlockChart({data}: {data:LockState}) {
                           y={(viewBox.cy || 0) - 12}
                           className="fill-foreground text-2xl font-bold"
                         >
-                          {unlocked.toFixed(1)}
+                          {formatCompactKda(unlocked)}
                         </tspan>
                         <tspan
                           x={viewBox.cx}
                           y={(viewBox.cy || 0) + 12}
                           className="fill-muted-foreground text-xs"
                         >
-                          {unlocked.mul(100).div(total).toFixed(1)}% of {total.toFixed(1)}
+                          {unlocked.mul(100).div(total).toFixed(1)}% of {formatCompactKda(total)}
                         </tspan>
                       </text>
                     )
