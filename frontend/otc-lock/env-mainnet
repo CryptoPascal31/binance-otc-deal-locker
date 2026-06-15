@@ -1,0 +1,6 @@
+VITE_DEFAULT_NODE_ENDPOINT=https://api.chainweb-community.org
+
+VITE_CHAIN_ID=0
+VITE_NAMESPACE=n_a93d47fd937a5d0899c9385763d5b1c4056842c5
+VITE_NETWORK="mainnet01"
+VITE_EXPLORER=https://explorer.chainweb-community.org/mainnet
