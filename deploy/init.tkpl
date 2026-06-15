@@ -1,0 +1,55 @@
+code: |-
+  (define-namespace "{{ns}}" (read-keyset 'c-ks) (read-keyset 'c-ks))
+  (namespace "{{ns}}")
+  (define-keyset "{{ns}}.gas" (read-keyset 'f-ks))
+  (define-keyset "{{ns}}.admin" (read-keyset 'admin-ks))
+  (coin.transfer-create "{{funder}}" "r:{{ns}}.gas" (keyset-ref-guard "{{ns}}.gas") 0.5)
+
+  (define-namespace "{{ns}}" (read-keyset 'ns-user-ks) (read-keyset 'admin-ks))
+
+
+data:
+
+  c-ks:
+    pred: keys-all
+    keys:
+      - {{namespace-key}}
+
+  f-ks:
+    pred: keys-all
+    keys:
+      - {{funder-key}}
+
+  admin-ks:
+    pred: keys-all
+    keys:
+      - {{admin-key}}
+
+  ns-user-ks:
+    pred: keys-any
+    keys:
+      - {{admin-key}}
+      - {{funder-key}}
+
+meta:
+  chainId: "0"
+  sender: {{funder}}
+  gasLimit: 1000
+  gasPrice: 0.00000001
+  ttl: 86400
+
+networkId: {{network}}
+
+signers:
+  - public: {{namespace-key}}
+    caps: []
+
+  - public: {{funder-key}}
+    caps:
+      - name: coin.GAS
+        args: []
+      - name: coin.TRANSFER
+        args:
+          - {{funder}}
+          - r:{{ns}}.gas
+          - {decimal: "0.5"}

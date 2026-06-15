@@ -1,0 +1,26 @@
+codeFile: deploy_tx.pact
+
+data:
+
+  admin-ks:
+    pred: keys-all
+    keys:
+      - {{admin-key}}
+
+meta:
+  chainId: "0"
+  sender: r:{{ns}}.gas
+  gasLimit: 150000
+  gasPrice: 0.00000001
+  ttl: 86400
+
+networkId: {{network}}
+
+signers:
+  - public: {{admin-key}}
+    caps: []
+
+  - public: {{funder-key}}
+    caps:
+      - name: coin.GAS
+        args: []
