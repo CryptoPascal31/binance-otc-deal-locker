@@ -26,6 +26,7 @@ import { Separator } from "./components/ui/separator"
 // @ts-ignore
 import {useTimeout} from 'react-use-timeout';
 import { EXPLORER } from "./lib/constants"
+import { is_blacklisted } from "./lib/blacklist"
 
 
 const ExplorerLink= ({txHash} : {txHash:string | null}) => txHash ? <a target="_blank" href={`${EXPLORER}/tx/${txHash}`}> <ExternalLink /></a> : null
@@ -99,6 +100,12 @@ function DoUnlockButton({account}: {account:string | null})
 }
 
 
+const DisabledAlert = () =>
+  <Alert variant="destructive" >
+    <AlertCircleIcon /> <AlertTitle>Frontend disabled</AlertTitle>
+    <AlertDescription> Frotend has been temporarily disabled </AlertDescription>
+  </Alert>
+
 
 export function UnlockCard({
   className,
@@ -127,9 +134,7 @@ export function UnlockCard({
             </FieldGroup>
           </form>
           <AccountUnlockCharts account={account} />
-          <DoUnlockButton account={account} />
-
-
+          {is_blacklisted(account) ? <DisabledAlert /> :  <DoUnlockButton account={account} />}
         </CardContent>
       </Card>
     </div>
