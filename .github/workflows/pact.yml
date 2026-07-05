@@ -27,6 +27,11 @@ jobs:
       - name: Add Pact to PATH
         run: echo "PATH=$PATH:$GITHUB_WORKSPACE/.bin" >> $GITHUB_ENV
 
+      - name: Unlock governance for tests
+        run: |
+          cat otc_deal_locker.pact | sed "s/(defconst FROZEN-MODULE true)/^[[200~(defconst FROZEN-MODULE false)/g" > .tmp
+          mv .tmp otc_deal_locker.pact
+
       - name: Run tests
         run: |
           pact otc_deal_locker.repl
