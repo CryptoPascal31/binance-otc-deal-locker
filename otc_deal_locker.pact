@@ -3,7 +3,7 @@
   (use free.util-math)
   (use free.util-time)
 
-  (defconst FROZEN-MODULE false)
+  (defconst FROZEN-MODULE true)
 
   (defcap GOV:bool ()
     (enforce (not FROZEN-MODULE) "Governance locked")
